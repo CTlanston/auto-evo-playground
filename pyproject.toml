@@ -3,3 +3,4 @@ line-length = 120
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+addopts = "--cov=src --cov-report=term-missing"
