@@ -143,3 +143,17 @@ def test_integer_metrics_treated_as_numeric():
     ]
     result = aggregate_metrics(payloads)
     assert result["s1"]["cpu_usage"]["mean"] == pytest.approx(2.0)
+
+
+def test_boolean_metric_value_treated_as_non_numeric(caplog):
+    """bool is a subclass of int in Python; it must be explicitly rejected."""
+    payloads = [
+        {"server_id": "s1", "cpu_usage": True, "memory_allocated": 256},
+        {"server_id": "s1", "cpu_usage": 0.5, "memory_allocated": 512},
+    ]
+    with caplog.at_level(logging.WARNING):
+        result = aggregate_metrics(payloads)
+    # True must be skipped; only 0.5 remains for cpu_usage
+    cpu = result["s1"]["cpu_usage"]
+    assert cpu["mean"] == pytest.approx(0.5)
+    assert any("non-numeric" in msg.lower() or "bool" in msg.lower() for msg in caplog.messages)
