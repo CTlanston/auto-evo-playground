@@ -35,7 +35,7 @@ def aggregate_metrics(payloads):
                     key, server_id,
                 )
                 continue
-            if not isinstance(value, (int, float)):
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
                 logger.warning(
                     "non-numeric value %r for metric '%s' on server '%s', skipping",
                     value, key, server_id,
