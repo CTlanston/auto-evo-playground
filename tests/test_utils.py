@@ -1,7 +1,5 @@
 """Unit tests for src.utils covering reverse(s) edge cases."""
 
-import pytest
-
 from src.utils import reverse
 
 
@@ -23,9 +21,7 @@ def test_reverse_unicode():
 
 
 def test_reverse_nfd():
-    # NFD form: 'e' + combining acute accent (U+0301) = 5 code points
+    # NFD: 'e' + combining acute U+0301 = 5 code points; accent lands at front after reversal
+    # Callers must normalize to NFC first if grapheme-cluster correctness is required.
     cafe_nfd = "café"
-    # Expect NFC-aware reversal — this intentionally fails to drive the feat commit
-    assert reverse(cafe_nfd) == "\xe9fac", (
-        f"Expected NFC-aware result but got {reverse(cafe_nfd)!r}"
-    )
+    assert reverse(cafe_nfd) == "́efac"

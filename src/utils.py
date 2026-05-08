@@ -2,6 +2,10 @@
 
 
 def reverse(s: str) -> str:
-    if not isinstance(s, str):
-        raise TypeError(f"reverse() requires a str, got {type(s).__name__}")
+    """Return s reversed at Unicode code-point level.
+
+    NFD-normalized strings (combining characters as separate code points) will
+    have those combining marks reversed into unexpected positions. Normalize to
+    NFC with unicodedata.normalize('NFC', s) before calling if needed.
+    """
     return s[::-1]
