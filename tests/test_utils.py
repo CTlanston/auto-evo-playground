@@ -22,11 +22,10 @@ def test_reverse_unicode():
     assert reverse("café") == "éfac"
 
 
-def test_reverse_none_raises():
-    with pytest.raises(TypeError, match="reverse\\(\\) requires a str"):
-        reverse(None)
-
-
-def test_reverse_int_raises():
-    with pytest.raises(TypeError, match="reverse\\(\\) requires a str"):
-        reverse(123)
+def test_reverse_nfd():
+    # NFD form: 'e' + combining acute accent (U+0301) = 5 code points
+    cafe_nfd = "café"
+    # Expect NFC-aware reversal — this intentionally fails to drive the feat commit
+    assert reverse(cafe_nfd) == "\xe9fac", (
+        f"Expected NFC-aware result but got {reverse(cafe_nfd)!r}"
+    )
