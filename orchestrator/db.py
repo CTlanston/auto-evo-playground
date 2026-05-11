@@ -40,7 +40,7 @@ def record_run(
 ) -> None:
     """Insert a run record into the database."""
     conn.execute(
-        "INSERT INTO runs (issue_id, role, started_at, cost_usd) VALUES (?, ?, ?, ?)",
+        "INSERT OR IGNORE INTO runs (issue_id, role, started_at, cost_usd) VALUES (?, ?, ?, ?)",
         (issue_id, role, started_at, cost_usd),
     )
     conn.commit()
