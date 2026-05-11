@@ -6,9 +6,13 @@ _COST_PER_TOKEN = 1e-6  # USD per token
 def record_run(run_id, input_tokens, output_tokens, store):
     """Record a model run into *store* (a dict keyed by run_id).
 
+    Raises ValueError if run_id is None or empty.
     Idempotent: a second call with the same run_id is silently ignored.
     Zero-token runs (both counts == 0) are phantom runs and not persisted.
     """
+    if not run_id:
+        raise ValueError(f"run_id must be non-empty, got {run_id!r}")
+
     if run_id in store:
         return
 
