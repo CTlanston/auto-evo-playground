@@ -16,6 +16,11 @@ def record_run(run_id, input_tokens, output_tokens, store):
     if not run_id:
         raise ValueError(f"run_id must be non-empty, got {run_id!r}")
 
+    if input_tokens < 0 or output_tokens < 0:
+        raise ValueError(
+            f"token counts must be non-negative; got input_tokens={input_tokens!r}, output_tokens={output_tokens!r}"
+        )
+
     if run_id in store:
         logger.warning("record_run: duplicate run_id=%r; skipping write (first write wins)", run_id)
         return
