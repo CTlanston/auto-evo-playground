@@ -62,12 +62,10 @@ def test_different_run_ids_both_stored():
 # ---------------------------------------------------------------------------
 # Step 3 – Zero-token phantom cost
 # ---------------------------------------------------------------------------
-# Design decision (correcting c017b74): (0,0) runs are phantom runs.
+# Design decision: (0,0) runs are phantom runs.
 # They must NOT be persisted at all — not even with cost=0.
-# The original parametrize included (0,0,True) asserting cost==0 was stored,
-# which directly contradicted test_zero_token_run_is_not_persisted below.
-# Resolution: (0,0) is excluded from this parametrize; zero-token
-# non-persistence is the single authoritative assertion in the test below.
+# (0,0) is excluded from the parametrize below; zero-token non-persistence
+# is the single authoritative assertion in test_zero_token_run_is_not_persisted.
 
 @pytest.mark.parametrize("in_tok,out_tok", [
     # (0, 0) excluded: zero-token runs are phantom; see test_zero_token_run_is_not_persisted
