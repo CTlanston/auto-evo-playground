@@ -62,3 +62,25 @@ def test_nonzero_tokens_have_positive_cost():
     """Non-zero tokens must produce a positive cost stored in the entry."""
     entry = record_run("run-003b", 1000, 500)
     assert entry["cost"] > 0
+
+
+# ---------------------------------------------------------------------------
+# Step 4 – None-cost boundary: None tokens must persist as None, no TypeError
+# ---------------------------------------------------------------------------
+
+def test_none_input_tokens_stores_none_cost():
+    """None input_tokens must not raise TypeError; cost persisted as None."""
+    entry = record_run("run-004a", None, 200)
+    assert entry["cost"] is None
+
+
+def test_none_output_tokens_stores_none_cost():
+    """None output_tokens must not raise TypeError; cost persisted as None."""
+    entry = record_run("run-004b", 100, None)
+    assert entry["cost"] is None
+
+
+def test_both_none_tokens_stores_none_cost():
+    """Both token counts None must not raise TypeError; cost persisted as None."""
+    entry = record_run("run-004c", None, None)
+    assert entry["cost"] is None
