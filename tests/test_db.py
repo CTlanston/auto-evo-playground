@@ -52,3 +52,58 @@ def test_record_run_duplicate_key_produces_single_row():
         "SELECT COUNT(*) FROM runs WHERE issue_id=1 AND role='coder' AND started_at='2024-01-01T00:00:00'"
     ).fetchone()[0]
     assert count == 1, f"expected exactly 1 row, got {count}"
+
+
+# ---------------------------------------------------------------------------
+# Step 4 — comprehensive idempotent-INSERT tests (the test IS the deliverable)
+# ---------------------------------------------------------------------------
+
+def test_record_run_idempotent_preserves_first_write():
+    """The first call's cost_usd must be retained; the second call must not overwrite it."""
+    conn = _fresh_conn()
+
+    record_run(conn, issue_id=7, role="reviewer", started_at="2024-06-01T12:00:00", cost_usd=0.42)
+    record_run(conn, issue_id=7, role="reviewer", started_at="2024-06-01T12:00:00", cost_usd=9.99)
+
+    row = conn.execute(
+        "SELECT cost_usd FROM runs WHERE issue_id=7 AND role='reviewer'"
+    ).fetchone()
+    assert row is not None
+    assert row[0] == 0.42, "second call must not overwrite the first write"
+
+
+def test_record_run_different_role_same_issue_creates_separate_rows():
+    """Different roles with the same issue_id and started_at are distinct keys → two rows."""
+    conn = _fresh_conn()
+
+    record_run(conn, issue_id=2, role="coder", started_at="2024-01-01T00:00:00", cost_usd=0.1)
+    record_run(conn, issue_id=2, role="reviewer", started_at="2024-01-01T00:00:00", cost_usd=0.2)
+
+    count = conn.execute(
+        "SELECT COUNT(*) FROM runs WHERE issue_id=2"
+    ).fetchone()[0]
+    assert count == 2, "different roles must produce separate rows"
+
+
+def test_record_run_different_started_at_creates_separate_rows():
+    """Same issue_id and role but different started_at is a distinct key → two rows."""
+    conn = _fresh_conn()
+
+    record_run(conn, issue_id=3, role="coder", started_at="2024-01-01T00:00:00", cost_usd=0.1)
+    record_run(conn, issue_id=3, role="coder", started_at="2024-01-02T00:00:00", cost_usd=0.2)
+
+    count = conn.execute(
+        "SELECT COUNT(*) FROM runs WHERE issue_id=3 AND role='coder'"
+    ).fetchone()[0]
+    assert count == 2, "different started_at must produce separate rows"
+
+
+def test_record_run_many_duplicates_stays_one_row():
+    """Ten duplicate calls must still result in exactly one stored row."""
+    conn = _fresh_conn()
+
+    for _ in range(10):
+        record_run(conn, issue_id=99, role="planner", started_at="2025-01-01T00:00:00", cost_usd=1.0)
+
+    count = conn.execute("SELECT COUNT(*) FROM runs WHERE issue_id=99").fetchone()[0]
+    assert count == 1
