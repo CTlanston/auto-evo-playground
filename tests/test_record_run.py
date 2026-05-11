@@ -1,7 +1,6 @@
 """Tests for src.utils.record_run."""
 import logging
 import pytest
-from unittest.mock import patch
 
 from src.utils import record_run
 
