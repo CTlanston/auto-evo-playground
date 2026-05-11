@@ -148,3 +148,34 @@ def test_zero_token_run_logs_warning(caplog):
     assert len(caplog.records) == 1
     assert caplog.records[0].levelname == "WARNING"
 
+
+# ---------------------------------------------------------------------------
+# Step 3 – Negative token validation: ValueError for negative counts
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("in_tok,out_tok", [
+    (-1, 5),
+    (5, -1),
+    (-1, -1),
+])
+def test_negative_tokens_raise_value_error(in_tok, out_tok):
+    """Negative token counts must raise ValueError before any store write."""
+    store = {}
+    with pytest.raises(ValueError):
+        record_run("run-neg", in_tok, out_tok, store)
+
+
+@pytest.mark.parametrize("in_tok,out_tok", [
+    (-1, 5),
+    (5, -1),
+    (-1, -1),
+])
+def test_negative_tokens_do_not_write_to_store(in_tok, out_tok):
+    """Store must remain empty when negative tokens are given."""
+    store = {}
+    try:
+        record_run("run-neg-store", in_tok, out_tok, store)
+    except ValueError:
+        pass
+    assert len(store) == 0
+
