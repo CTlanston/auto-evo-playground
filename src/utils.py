@@ -7,8 +7,12 @@ def record_run(run_id, input_tokens, output_tokens, store):
     """Record a model run into *store* (a dict keyed by run_id).
 
     Idempotent: a second call with the same run_id is silently ignored.
+    Zero-token runs (both counts == 0) are phantom runs and not persisted.
     """
     if run_id in store:
+        return
+
+    if input_tokens == 0 and output_tokens == 0:
         return
 
     cost = (input_tokens + output_tokens) * _COST_PER_TOKEN
