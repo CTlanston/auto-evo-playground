@@ -46,3 +46,19 @@ def test_duplicate_call_returns_original_entry():
     first = record_run("run-002b", 10, 20)
     second = record_run("run-002b", 99, 99)
     assert second is first
+
+
+# ---------------------------------------------------------------------------
+# Step 3 – zero-token cost: 0 input + 0 output must yield cost == 0
+# ---------------------------------------------------------------------------
+
+def test_zero_tokens_have_zero_cost():
+    """When both token counts are 0, computed cost must equal 0."""
+    entry = record_run("run-003", 0, 0)
+    assert entry["cost"] == 0
+
+
+def test_nonzero_tokens_have_positive_cost():
+    """Non-zero tokens must produce a positive cost stored in the entry."""
+    entry = record_run("run-003b", 1000, 500)
+    assert entry["cost"] > 0
