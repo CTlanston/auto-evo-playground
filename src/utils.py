@@ -16,6 +16,12 @@ def record_run(run_id, input_tokens, output_tokens, store):
     if not run_id:
         raise ValueError(f"run_id must be non-empty, got {run_id!r}")
 
+    for name, val in (("input_tokens", input_tokens), ("output_tokens", output_tokens)):
+        if isinstance(val, bool) or not isinstance(val, int):
+            raise TypeError(
+                f"{name} must be a non-bool int, got {type(val).__name__!r} ({val!r})"
+            )
+
     if input_tokens < 0 or output_tokens < 0:
         raise ValueError(
             f"token counts must be non-negative; got input_tokens={input_tokens!r}, output_tokens={output_tokens!r}"
