@@ -1,7 +1,7 @@
 """Tests for orchestrator.db — migration guard and schema."""
 import sqlite3
 
-from orchestrator.db import init_db, record_run
+from orchestrator.db import init_db, record_run, _UNIQUE_INDEX
 
 
 def _legacy_conn():
@@ -107,3 +107,16 @@ def test_record_run_many_duplicates_stays_one_row():
 
     count = conn.execute("SELECT COUNT(*) FROM runs WHERE issue_id=99").fetchone()[0]
     assert count == 1
+
+
+def test_migration_guard_is_idempotent():
+    """init_db called on an already-migrated DB must not raise; unique index must still be present.
+
+    Exercises the False branch of `if _UNIQUE_INDEX not in existing` in _migrate_unique_index.
+    """
+    conn = _fresh_conn()  # first call: True branch — creates the unique index
+
+    init_db(conn)  # second call: False branch — index already present, skip creation
+
+    after = {row[1] for row in conn.execute("PRAGMA index_list('runs')").fetchall()}
+    assert _UNIQUE_INDEX in after, "unique index must still be present after second init_db"
