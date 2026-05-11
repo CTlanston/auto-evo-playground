@@ -9,3 +9,11 @@ def test_record_run_insert_called_exactly_once():
     store = MagicMock()
     record_run({"id": "x", "tokens": 10}, store)
     assert store.insert.call_count == 1
+
+
+def test_record_run_integration_single_record():
+    """One call to record_run must produce exactly one run record in the store."""
+    from src.run_recorder import RunStore
+    store = RunStore()
+    record_run({"id": "run-1", "tokens": 5}, store)
+    assert len(store.runs) == 1
