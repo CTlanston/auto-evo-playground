@@ -10,14 +10,22 @@ def record_run(run_id, input_tokens, output_tokens, store):
     """Record a model run into *store* (a dict keyed by run_id).
 
     Raises ValueError if run_id is None or empty.
-    Idempotent: a second call with the same run_id is silently ignored.
+    Raises TypeError if input_tokens or output_tokens is not a plain int (bool rejected).
+    Raises ValueError if input_tokens or output_tokens is negative.
+    Idempotent: a second call with the same run_id is silently ignored (first write wins).
     Zero-token runs (both counts == 0) are phantom runs and not persisted.
     """
     if not run_id:
         raise ValueError(f"run_id must be non-empty, got {run_id!r}")
 
+    for name, value in (("input_tokens", input_tokens), ("output_tokens", output_tokens)):
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise TypeError(f"{name} must be int, got {type(value).__name__!r}")
+        if value < 0:
+            raise ValueError(f"{name} must be non-negative, got {value!r}")
+
     if run_id in store:
-        logger.warning("record_run: duplicate run_id=%r; skipping write", run_id)
+        logger.warning("record_run: duplicate run_id=%r; skipping write (first write wins)", run_id)
         return
 
     if input_tokens == 0 and output_tokens == 0:
