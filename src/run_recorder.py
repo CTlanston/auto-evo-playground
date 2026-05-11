@@ -9,7 +9,9 @@ def clear_store():
 
 
 def record_run(run_id, input_tokens, output_tokens):
-    """Store a run entry keyed by run_id and return it."""
+    """Store a run entry keyed by run_id and return it. First-write-wins."""
+    if run_id in _store:
+        return _store[run_id]
     entry = {
         "run_id": run_id,
         "input_tokens": input_tokens,
