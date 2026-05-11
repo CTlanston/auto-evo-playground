@@ -106,3 +106,40 @@ def test_invalid_run_id_does_not_write_to_store(bad_id):
     except ValueError:
         pass
     assert len(store) == 0
+
+
+# ---------------------------------------------------------------------------
+# Step 5 – Unified log format: caplog assertions
+# ---------------------------------------------------------------------------
+
+def test_successful_write_logs_info(caplog):
+    """Successful persist must log at INFO with run_id and cost fields."""
+    store = {}
+    with caplog.at_level(logging.INFO, logger="src.utils"):
+        record_run("run-log-ok", 10, 5, store)
+    assert len(caplog.records) == 1
+    record = caplog.records[0]
+    assert record.levelname == "INFO"
+    assert "run_id=" in record.message
+    assert "cost=" in record.message
+
+
+def test_duplicate_run_id_logs_warning(caplog):
+    """Duplicate run_id must log at WARNING with run_id field."""
+    store = {}
+    record_run("run-log-dup", 10, 5, store)
+    with caplog.at_level(logging.WARNING, logger="src.utils"):
+        record_run("run-log-dup", 10, 5, store)
+    assert len(caplog.records) == 1
+    record = caplog.records[0]
+    assert record.levelname == "WARNING"
+    assert "run_id=" in record.message
+
+
+def test_zero_token_run_logs_warning(caplog):
+    """Zero-token (phantom) run must log at WARNING."""
+    store = {}
+    with caplog.at_level(logging.WARNING, logger="src.utils"):
+        record_run("run-log-zero", 0, 0, store)
+    assert len(caplog.records) == 1
+    assert caplog.records[0].levelname == "WARNING"
