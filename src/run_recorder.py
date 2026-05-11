@@ -1,5 +1,6 @@
 """Run recorder — persists run records and associated cost entries to a store."""
 import logging
+import math
 
 COST_PER_TOKEN = 0.001
 
@@ -28,9 +29,9 @@ def record_run(run_data, store):
         return
     if isinstance(tokens, bool) or not isinstance(tokens, (int, float)):
         return
-    if tokens < 0:
+    if tokens < 0 or not math.isfinite(tokens):
         logging.warning(
-            "record_run: negative tokens=%r for run_id=%r; skipping cost entry",
+            "record_run: invalid tokens=%r for run_id=%r; skipping cost entry",
             tokens,
             run_id,
         )
