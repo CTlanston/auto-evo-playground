@@ -83,3 +83,26 @@ def test_zero_token_run_is_not_persisted():
     store = {}
     record_run("run-zero", 0, 0, store)
     assert "run-zero" not in store
+
+
+# ---------------------------------------------------------------------------
+# Step 4 – run_id validation: None and empty string must be rejected
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("bad_id", [None, ""])
+def test_none_or_empty_run_id_raises_value_error(bad_id):
+    """record_run must raise ValueError when run_id is None or empty string."""
+    store = {}
+    with pytest.raises(ValueError):
+        record_run(bad_id, 10, 5, store)
+
+
+@pytest.mark.parametrize("bad_id", [None, ""])
+def test_invalid_run_id_does_not_write_to_store(bad_id):
+    """Store must be untouched when run_id is invalid."""
+    store = {}
+    try:
+        record_run(bad_id, 10, 5, store)
+    except ValueError:
+        pass
+    assert len(store) == 0
