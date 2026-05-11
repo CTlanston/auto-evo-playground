@@ -10,5 +10,7 @@ def record_run(storage, run):
     run_id = run.get("run_id")
     if run_id is not None and any(r.get("run_id") == run_id for r in storage):
         return False
+    if run.get("tokens", 0) == 0:
+        run = {**run, "cost_usd": 0.0}
     storage.append(run)
     return True
