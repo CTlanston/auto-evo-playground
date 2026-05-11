@@ -17,3 +17,11 @@ def test_record_run_integration_single_record():
     store = RunStore()
     record_run({"id": "run-1", "tokens": 5}, store)
     assert len(store.runs) == 1
+
+
+def test_record_run_missing_tokens_no_cost_entry():
+    """When 'tokens' key is absent, record_run must not write any cost entry."""
+    from src.run_recorder import RunStore
+    store = RunStore()
+    record_run({"id": "run-2"}, store)
+    assert len(store.costs) == 0
