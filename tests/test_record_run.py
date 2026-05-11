@@ -50,3 +50,19 @@ def test_zero_token_run_has_zero_cost():
     assert result is True
     assert storage[0]["cost_usd"] == 0.0
     assert storage[0]["tokens"] == 0
+
+
+def test_nonzero_token_run_preserves_cost():
+    """A run with tokens > 0 must store the original cost_usd unchanged."""
+    storage = []
+    run = {"run_id": "nonzero", "tokens": 100, "cost_usd": 0.05}
+    record_run(storage, run)
+    assert storage[0]["cost_usd"] == 0.05
+
+
+def test_zero_token_does_not_mutate_caller_dict():
+    """record_run must not mutate the caller's dict when zeroing cost_usd."""
+    storage = []
+    run = {"run_id": "immutable", "tokens": 0, "cost_usd": 9.99}
+    record_run(storage, run)
+    assert run["cost_usd"] == 9.99  # original dict unchanged
