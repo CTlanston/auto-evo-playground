@@ -93,22 +93,36 @@ def test_record_run_negative_tokens_emits_warning():
     assert len(store.costs) == 0
 
 
-def test_record_run_insert_cost_mutation_safe():
-    """Mutating run_data after record_run must not alter stored run or cost entries."""
-    from src.run_recorder import RunStore, COST_PER_TOKEN
+def test_insert_defensive_copy():
+    """RunStore.insert and insert_cost must store copies — external mutation must not alter stored entries."""
+    from src.run_recorder import RunStore
     store = RunStore()
-    run = {"id": "run-mut", "tokens": 10}
-    record_run(run, store)
-    expected_cost = 10 * COST_PER_TOKEN
 
-    # Mutate source dict after the call
-    run["id"] = "mutated"
-    run["tokens"] = 9999
+    run = {"id": "r-copy", "tokens": 5}
+    store.insert(run)
+    run["id"] = "mutated-run"
+    assert store.runs[0]["id"] == "r-copy"
 
-    # Stored run must reflect value at call time (shallow-copied by insert)
-    assert store.runs[0]["id"] == "run-mut"
-    # Stored cost must reflect tokens at call time, not post-call mutation
-    assert store.costs[0]["cost"] == pytest.approx(expected_cost)
+    cost_entry = {"run_id": "c1", "cost": 0.07}
+    store.insert_cost(cost_entry)
+    cost_entry["cost"] = 9999.0
+    assert store.costs[0]["cost"] == 0.07
+
+
+def test_record_run_nan_tokens_no_cost_entry():
+    """tokens=float('nan') must skip cost entry — NaN arithmetic produces phantom cost."""
+    from src.run_recorder import RunStore
+    store = RunStore()
+    record_run({"id": "run-nan", "tokens": float("nan")}, store)
+    assert len(store.costs) == 0
+
+
+def test_record_run_inf_tokens_no_cost_entry():
+    """tokens=float('inf') must skip cost entry — infinite cost is a phantom value."""
+    from src.run_recorder import RunStore
+    store = RunStore()
+    record_run({"id": "run-inf", "tokens": float("inf")}, store)
+    assert len(store.costs) == 0
 
 
 def test_src_package_exposes_record_run():
