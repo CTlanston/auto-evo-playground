@@ -13,7 +13,7 @@ def parse_cli_result(payload: dict) -> float:
     usage = payload.get("usage", {})
     input_tokens = usage.get("input_tokens", 0)
     output_tokens = usage.get("output_tokens", 0)
-    cost_usd = float(payload.get("cost_usd", 0.0))
+    cost_usd = float(payload.get("total_cost_usd", 0.0))
 
     if input_tokens == 0 and output_tokens == 0:
         cost_usd = 0.0
