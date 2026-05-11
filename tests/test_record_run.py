@@ -36,3 +36,17 @@ def test_no_run_id_always_appended():
     assert r1 is True
     assert r2 is True
     assert len(storage) == 2
+
+
+# ---------------------------------------------------------------------------
+# Step 2 – Zero-token phantom cost fix
+# ---------------------------------------------------------------------------
+
+def test_zero_token_run_has_zero_cost():
+    """A run with tokens=0 must be stored with cost_usd forced to 0.0, not the caller's value."""
+    storage = []
+    run = {"run_id": "zero-tok", "tokens": 0, "cost_usd": 1.5}
+    result = record_run(storage, run)
+    assert result is True
+    assert storage[0]["cost_usd"] == 0.0
+    assert storage[0]["tokens"] == 0
