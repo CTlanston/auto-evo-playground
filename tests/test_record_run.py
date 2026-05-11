@@ -179,3 +179,42 @@ def test_negative_tokens_do_not_write_to_store(in_tok, out_tok):
         pass
     assert len(store) == 0
 
+
+# ---------------------------------------------------------------------------
+# Step 4 – Token type validation: TypeError for non-int or bool values
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("bad_tok", [None, "100", True, False])
+def test_non_int_input_tokens_raises_type_error(bad_tok):
+    """Non-int or bool input_tokens must raise TypeError."""
+    store = {}
+    with pytest.raises(TypeError):
+        record_run("run-type", bad_tok, 5, store)
+
+
+@pytest.mark.parametrize("bad_tok", [None, "100", True, False])
+def test_non_int_output_tokens_raises_type_error(bad_tok):
+    """Non-int or bool output_tokens must raise TypeError."""
+    store = {}
+    with pytest.raises(TypeError):
+        record_run("run-type", 5, bad_tok, store)
+
+
+@pytest.mark.parametrize("bad_tok", [None, "100", True, False])
+def test_invalid_token_type_does_not_write_to_store(bad_tok):
+    """Store must remain empty when token type is invalid."""
+    store = {}
+    try:
+        record_run("run-type-store", bad_tok, 5, store)
+    except TypeError:
+        pass
+    assert len(store) == 0
+
+
+def test_valid_int_token_still_works():
+    """A normal int(10) must still produce a valid record after type checks are added."""
+    store = {}
+    record_run("run-int-ok", 10, 5, store)
+    assert "run-int-ok" in store
+    assert store["run-int-ok"]["cost"] > 0
+
