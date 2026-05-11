@@ -17,5 +17,7 @@ class RunStore:
 
 def record_run(run_data, store):
     store.insert(run_data)
-    tokens = run_data.get("tokens", 0)  # phantom zero: cost written even when tokens key absent
+    if "tokens" not in run_data:
+        return
+    tokens = run_data["tokens"]
     store.insert_cost({"run_id": run_data.get("id"), "cost": tokens * COST_PER_TOKEN})
