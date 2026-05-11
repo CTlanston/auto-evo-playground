@@ -58,3 +58,28 @@ def test_different_run_ids_both_stored():
     assert len(store) == 2
     assert "run-A" in store
     assert "run-B" in store
+
+
+# ---------------------------------------------------------------------------
+# Step 3 – Zero-token phantom cost
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("in_tok,out_tok", [
+    (1, 0),
+    (0, 1),
+    (5, 10),
+])
+def test_nonzero_tokens_produce_positive_cost(in_tok, out_tok):
+    """At least one non-zero token count must produce a positive cost."""
+    store = {}
+    run_id = f"run-cost-{in_tok}-{out_tok}"
+    record_run(run_id, in_tok, out_tok, store)
+    assert run_id in store
+    assert store[run_id]["cost"] > 0
+
+
+def test_zero_token_run_is_not_persisted():
+    """A zero-token run is a phantom and must NOT be written to the store."""
+    store = {}
+    record_run("run-zero", 0, 0, store)
+    assert "run-zero" not in store
