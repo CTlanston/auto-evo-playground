@@ -1,5 +1,4 @@
 """Tests for orchestrator.runner — zero-token cost-zeroing guard."""
-import sqlite3
 from unittest.mock import patch
 
 from orchestrator.runner import parse_cli_result, record_cli_run
