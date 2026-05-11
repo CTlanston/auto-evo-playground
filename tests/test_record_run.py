@@ -27,3 +27,34 @@ def test_single_record_contains_expected_fields():
     assert record["input_tokens"] == 100
     assert record["output_tokens"] == 50
     assert "cost" in record
+
+
+# ---------------------------------------------------------------------------
+# Step 2 – Double-write: idempotency guard
+# ---------------------------------------------------------------------------
+
+def test_double_call_same_run_id_produces_one_record():
+    """Calling record_run twice with the same run_id must leave only one record."""
+    store = {}
+    record_run("run-dup", 10, 5, store)
+    record_run("run-dup", 10, 5, store)
+    assert len(store) == 1
+
+
+def test_double_call_does_not_overwrite_first_record():
+    """Second call with same run_id must not overwrite the first record's data."""
+    store = {}
+    record_run("run-dup2", 100, 50, store)
+    original = dict(store["run-dup2"])
+    record_run("run-dup2", 999, 999, store)
+    assert store["run-dup2"] == original
+
+
+def test_different_run_ids_both_stored():
+    """Two calls with different run_ids must both be stored."""
+    store = {}
+    record_run("run-A", 10, 5, store)
+    record_run("run-B", 20, 10, store)
+    assert len(store) == 2
+    assert "run-A" in store
+    assert "run-B" in store
