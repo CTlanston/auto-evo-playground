@@ -8,7 +8,9 @@ _store = {}
 
 
 def calculate_cost(input_tokens, output_tokens):
-    """Return Decimal cost from token counts."""
+    """Return Decimal cost from token counts, or None if either count is None."""
+    if input_tokens is None or output_tokens is None:
+        return None
     return (
         Decimal(input_tokens) * _PRICE_PER_INPUT_TOKEN
         + Decimal(output_tokens) * _PRICE_PER_OUTPUT_TOKEN
