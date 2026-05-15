@@ -1,4 +1,3 @@
-import pytest
 from src.utils import unique_preserve_order
 
 
