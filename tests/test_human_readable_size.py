@@ -21,3 +21,9 @@ from src.utils import human_readable_size
 ])
 def test_human_readable_size(bytes_count, expected):
     assert human_readable_size(bytes_count) == expected
+
+
+def test_negative_bytes_count_raises():
+    """Negative bytes_count is undefined; function must raise ValueError."""
+    with pytest.raises(ValueError):
+        human_readable_size(-1)
