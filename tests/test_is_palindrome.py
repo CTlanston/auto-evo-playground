@@ -1,4 +1,3 @@
-import pytest
 from src.utils import is_palindrome
 from src import is_palindrome as src_is_palindrome
 
