@@ -1,5 +1,6 @@
 import pytest
 from src.utils import is_valid_email_simple
+from src import is_valid_email_simple as _pkg_export  # noqa: F401
 
 
 @pytest.mark.parametrize("email,expected", [
