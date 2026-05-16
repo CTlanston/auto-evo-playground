@@ -12,6 +12,10 @@ from src.utils import human_readable_size
     (1024 * 1024 * 1024, "1.0 GB"),
     (1024 ** 4, "1.0 TB"),
     (1024 ** 4 * 2, "2.0 TB"),
+    # unit-1 rollover: 1023.999...x rounds to 1024.0 with :.1f — must bump to next unit
+    (1024 ** 2 - 1, "1.0 MB"),
+    (1024 ** 3 - 1, "1.0 GB"),
+    (1024 ** 4 - 1, "1.0 TB"),
 ])
 def test_human_readable_size(bytes_count, expected):
     assert human_readable_size(bytes_count) == expected
