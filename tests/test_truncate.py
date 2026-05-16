@@ -1,4 +1,9 @@
 from src.utils import truncate
+from src import truncate as src_truncate
+
+
+def test_src_package_exposes_truncate():
+    assert src_truncate("hello world", 8) == "hello..."
 
 
 def test_short_string_unchanged():
