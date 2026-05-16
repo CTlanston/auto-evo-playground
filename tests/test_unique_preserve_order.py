@@ -1,3 +1,5 @@
+import pytest
+
 from src.utils import unique_preserve_order
 
 
@@ -28,3 +30,8 @@ def test_all_duplicates():
 def test_type_coercion_treats_equal_values_as_duplicates():
     # Python equality/hash semantics: 1 == True == 1.0, so only first survives
     assert unique_preserve_order([1, True, 1.0]) == [1]
+
+
+def test_unhashable_items_raise_type_error():
+    with pytest.raises(TypeError):
+        unique_preserve_order([[1], [2]])
