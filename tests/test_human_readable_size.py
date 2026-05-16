@@ -16,6 +16,8 @@ from src.utils import human_readable_size
     (1024 ** 2 - 1, "1.0 MB"),
     (1024 ** 3 - 1, "1.0 GB"),
     (1024 ** 4 - 1, "1.0 TB"),
+    # TB ceiling: inputs ≥ 1 PiB return oversized TB strings (no PB unit — intentional)
+    (1024 ** 5, "1024.0 TB"),
 ])
 def test_human_readable_size(bytes_count, expected):
     assert human_readable_size(bytes_count) == expected
