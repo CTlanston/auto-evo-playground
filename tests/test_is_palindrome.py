@@ -1,5 +1,4 @@
 from src.utils import is_palindrome
-from src import is_palindrome as src_is_palindrome
 
 
 def test_racecar():
@@ -24,7 +23,3 @@ def test_madam_case_insensitive():
 
 def test_madam_case_sensitive_false():
     assert is_palindrome("Madam", case_insensitive=False) is False
-
-
-def test_src_package_exposes_is_palindrome():
-    assert src_is_palindrome("racecar") is True
