@@ -1,0 +1,47 @@
+name: daily-digest
+
+# A once-a-day summary of agent activity. Posts as a comment on a fixed
+# digest issue (created on first run if missing). Surfaces:
+#   - PRs merged in the last 24h
+#   - PRs still open with validator FAIL (need human attention)
+#   - Queue depth (agent:queue count)
+#   - Stuck issues (agent:in-progress older than 24h)
+
+on:
+  schedule:
+    # 17:00 UTC daily (early morning Pacific time). Adjust freely.
+    - cron: "0 17 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+  checks: read
+
+concurrency:
+  group: daily-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.AGENT_PAT }}
+      DIGEST_TITLE: "[auto-evo] Daily digest"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Build + post digest
+        run: |
+          python -m orchestrator.daily_digest \
+            --repo "$GITHUB_REPOSITORY" \
+            --digest-title "$DIGEST_TITLE"

@@ -1,0 +1,104 @@
+name: revert
+
+# Emergency rollback. Manual workflow_dispatch only — never schedule.
+# Opens a revert PR that, once approved by a CODEOWNER, lands the revert
+# through the normal protected-branch flow.
+#
+# Note vs docs/upgrade-plan.md §Phase 8: the spec said "git revert ...
+# and merge directly". That would require bypassing main branch
+# protection, which is the safety net we cannot weaken. We use a
+# revert PR instead, marked [CONTROL-PLANE OVERRIDE] for visibility,
+# expected to be approved by a CODEOWNER within minutes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "PR number to revert (the original auto-merge PR), or a commit SHA"
+        required: true
+        type: string
+      reason:
+        description: "Why we're reverting (will be in the PR body)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: revert
+  cancel-in-progress: false
+
+jobs:
+  revert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.AGENT_PAT }}
+    steps:
+      - name: Checkout main with history
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.AGENT_PAT }}
+
+      - name: Resolve target commit SHA
+        id: resolve
+        run: |
+          set -euo pipefail
+          TARGET="${{ inputs.target }}"
+          # If TARGET is an integer, treat as PR number → find the merge commit on main.
+          if [[ "$TARGET" =~ ^[0-9]+$ ]]; then
+            SHA=$(gh pr view "$TARGET" --repo "$GITHUB_REPOSITORY" --json mergeCommit \
+                  --jq '.mergeCommit.oid' || true)
+            if [ -z "$SHA" ] || [ "$SHA" = "null" ]; then
+              echo "::error::Could not resolve PR #$TARGET to a merge commit"
+              exit 1
+            fi
+          else
+            SHA="$TARGET"
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "::notice::Reverting commit $SHA"
+
+      - name: Create revert branch + revert commit
+        id: revert
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          BRANCH="revert/${SHA:0:8}-$(date +%s)"
+          git config user.name "auto-evo revert"
+          git config user.email "auto-evo@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          # -m 1 for merge commits; harmless for non-merge commits but try plain first.
+          if ! git revert --no-edit "$SHA" 2>/dev/null; then
+            git revert --no-edit -m 1 "$SHA"
+          fi
+          git push origin "$BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Open revert PR
+        env:
+          BRANCH: ${{ steps.revert.outputs.branch }}
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: |
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$BRANCH" \
+            --base main \
+            --title "[CONTROL-PLANE OVERRIDE] Revert ${SHA:0:8}" \
+            --body "$(cat <<EOF
+          🚨 **Manual revert** triggered via workflow_dispatch.
+
+          - Target: \`$SHA\`
+          - Reason: ${{ inputs.reason }}
+
+          This bypasses the agent's normal merge flow. A CODEOWNER should
+          review and merge ASAP. Branch protection still applies — required
+          checks must pass.
+          EOF
+          )"
