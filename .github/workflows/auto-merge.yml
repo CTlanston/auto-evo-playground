@@ -1,0 +1,114 @@
+name: auto-merge
+
+# Guard-rail auto-merge. Fires when ANY check on a PR completes; checks
+# whether ALL required checks are green. Required = `heterologous-validation`
+# (PASS) + shadow-ci fast-lint + shadow-ci fast-unit. The slow lane is
+# informational and not gated on.
+#
+# When green: squash-merge to main + delete the shadow branch + close the
+# linked issue + label agent:done.
+#
+# Safety: main has branch protection requiring these same checks; this
+# workflow is just the convenience layer. If the workflow is wrong, main
+# still cannot be broken by it — protection blocks unsigned merges.
+
+on:
+  check_run:
+    types: [completed]
+  workflow_run:
+    workflows: ["shadow-ci", "validator"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: read
+
+concurrency:
+  group: auto-merge-${{ github.event.check_run.pull_requests[0].number || github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  maybe-merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.AGENT_PAT }}
+      REQUIRED_CHECKS: "heterologous-validation,fast-lint,fast-unit"
+    steps:
+      - name: Find candidate PR(s)
+        id: find
+        run: |
+          set -euo pipefail
+          # Two trigger sources may bring us here. Resolve PR numbers for both.
+          PRS=""
+          if [ "${{ github.event_name }}" = "check_run" ]; then
+            PRS=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${{ github.event.check_run.head_sha }}/pulls" \
+              --jq '.[].number' || true)
+          else
+            # workflow_run event — list PRs containing head_sha.
+            HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+            PRS=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/pulls" \
+              --jq '.[].number' || true)
+          fi
+          # Strip whitespace / newlines into a space-separated list.
+          PRS=$(echo "$PRS" | tr '\n' ' ')
+          echo "prs=$PRS" >> "$GITHUB_OUTPUT"
+          echo "::notice::Candidate PRs: $PRS"
+
+      - name: Evaluate + maybe merge each candidate
+        if: steps.find.outputs.prs != ''
+        run: |
+          set -euo pipefail
+          for PR in ${{ steps.find.outputs.prs }}; do
+            echo "::group::Evaluating PR #$PR"
+            # Pull required check statuses for this PR.
+            HEAD=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json headRefOid,headRefName \
+                   --jq '{sha: .headRefOid, branch: .headRefName}')
+            HEAD_SHA=$(echo "$HEAD" | python3 -c 'import sys,json; print(json.load(sys.stdin)["sha"])')
+            BRANCH=$(echo "$HEAD"  | python3 -c 'import sys,json; print(json.load(sys.stdin)["branch"])')
+            echo "head_sha=$HEAD_SHA branch=$BRANCH"
+
+            # Branch must be shadow/issue-<n>; refuse to auto-merge anything else.
+            case "$BRANCH" in
+              shadow/issue-*) : ;;
+              *) echo "::notice::PR #$PR branch $BRANCH is not a shadow/issue-* branch — skipping."; continue ;;
+            esac
+
+            ALL_GREEN=true
+            IFS=',' read -ra REQ <<<"$REQUIRED_CHECKS"
+            for CHECK in "${REQ[@]}"; do
+              # Look up commit statuses + check runs by name on the head SHA.
+              STATE=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/status" \
+                --jq ".statuses[] | select(.context==\"$CHECK\") | .state" | head -n1)
+              if [ -z "$STATE" ]; then
+                # Also try check-runs (jobs publish as check-runs by job name).
+                STATE=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
+                  --jq ".check_runs[] | select(.name==\"$CHECK\") | .conclusion" | head -n1)
+              fi
+              echo "  $CHECK -> ${STATE:-<missing>}"
+              if [ "$STATE" != "success" ]; then
+                ALL_GREEN=false
+              fi
+            done
+
+            if [ "$ALL_GREEN" != "true" ]; then
+              echo "::notice::PR #$PR not yet all-green — skipping."
+              echo "::endgroup::"
+              continue
+            fi
+
+            echo "::notice::PR #$PR all required checks green — auto-merging."
+            gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch \
+              --subject "$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json title --jq .title)"
+
+            # Resolve issue number from branch name `shadow/issue-<n>` and close it.
+            ISSUE_NUM=$(echo "$BRANCH" | sed -nE 's|^shadow/issue-([0-9]+)$|\1|p')
+            if [ -n "$ISSUE_NUM" ]; then
+              gh issue close "$ISSUE_NUM" --repo "$GITHUB_REPOSITORY" --reason completed || true
+              gh issue edit  "$ISSUE_NUM" --repo "$GITHUB_REPOSITORY" \
+                --remove-label "agent:in-progress" --add-label "agent:done" || true
+            fi
+            echo "::endgroup::"
+          done
