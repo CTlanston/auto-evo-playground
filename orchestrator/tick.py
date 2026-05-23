@@ -32,6 +32,8 @@ import textwrap
 from dataclasses import dataclass
 from typing import List, Optional
 
+from orchestrator import dispatch as dispatch_mod
+
 LOG = logging.getLogger("orchestrator.tick")
 
 LABEL_QUEUE = "agent:queue"
@@ -317,7 +319,16 @@ def mark_in_progress(repo: str, issue_number: int, plan_md: str) -> None:
 # ---------------------------------------------------------------------------
 
 def tick(repo: str, *, dry_run: bool) -> int:
-    """Run one heartbeat tick. Returns process exit code."""
+    """Run one heartbeat tick. Returns process exit code.
+
+    A tick handles BOTH:
+      - new work: pick a queued issue, plan it, dispatch workers
+      - in-flight work: for any in-progress issue, check if workers are done
+        and open a PR if so
+
+    Doing both per tick keeps the schedule cron the sole driver — no
+    separate "watcher" workflow needed for the happy path.
+    """
     if is_frozen():
         LOG.info("AGENT_FROZEN is set — halting this tick (kill-switch active)")
         return 0
@@ -335,6 +346,8 @@ def tick(repo: str, *, dry_run: bool) -> int:
         )]
     else:
         issues = fetch_queue_issues(repo)
+        # Also handle any in-progress issue first (open PRs for completed work).
+        _process_in_progress_issues(repo)
 
     chosen = pick_next_issue(issues)
     if chosen is None:
@@ -344,19 +357,90 @@ def tick(repo: str, *, dry_run: bool) -> int:
     LOG.info("picked issue #%d: %s", chosen.number, chosen.title)
 
     if dry_run:
-        # Don't touch git or gh in dry-run; just confirm the plan flow.
+        # Don't touch git or gh in dry-run; just confirm the plan + dispatch flow.
         artifacts = plan_stub(chosen)
-        LOG.info("dry-run plan.md (%d chars), contract.md (%d chars)",
-                 len(artifacts.plan_md), len(artifacts.contract_md))
+        subtasks = dispatch_mod.dispatch_all(
+            repo=repo or "owner/repo",
+            branch=shadow_branch_name(chosen.number),
+            issue_number=chosen.number,
+            plan_md=artifacts.plan_md,
+            dry_run=True,
+        )
+        LOG.info("dry-run plan.md (%d chars), contract.md (%d chars), subtasks=%d",
+                 len(artifacts.plan_md), len(artifacts.contract_md), len(subtasks))
         return 0
 
     branch = ensure_shadow_branch(chosen.number)
     artifacts = plan_with_claude(chosen)
     commit_artifacts(branch, artifacts, chosen.number)
     mark_in_progress(repo, chosen.number, artifacts.plan_md)
+    dispatch_mod.dispatch_all(
+        repo=repo,
+        branch=branch,
+        issue_number=chosen.number,
+        plan_md=artifacts.plan_md,
+    )
 
     LOG.info("tick complete for issue #%d on %s", chosen.number, branch)
     return 0
+
+
+def _process_in_progress_issues(repo: str) -> None:
+    """For each agent:in-progress issue: if workers are all done, open the PR.
+
+    Idempotent: if a PR is already open for this branch, gh pr create exits
+    with a non-zero status which we tolerate.
+    """
+    proc = _run([
+        "gh", "issue", "list",
+        "--repo", repo,
+        "--state", "open",
+        "--label", LABEL_IN_PROGRESS,
+        "--limit", "50",
+        "--json", "number",
+    ], check=False)
+    if proc.returncode != 0:
+        LOG.warning("could not list in-progress issues: %s", proc.stderr.strip())
+        return
+    raw = json.loads(proc.stdout or "[]")
+    for entry in raw:
+        n = entry["number"]
+        _maybe_open_pr_for_issue(repo, n)
+
+
+def _maybe_open_pr_for_issue(repo: str, issue_number: int) -> None:
+    branch = shadow_branch_name(issue_number)
+    # Fetch latest of that branch so workers_all_done sees fresh commits.
+    fetch = _run(["git", "fetch", "origin", branch], check=False)
+    if fetch.returncode != 0:
+        LOG.info("issue #%d: branch %s not on remote yet — skipping", issue_number, branch)
+        return
+
+    # Read plan.md from the branch to know what subtasks exist.
+    show = _run(["git", "show", f"origin/{branch}:plan.md"], check=False)
+    if show.returncode != 0:
+        LOG.info("issue #%d: no plan.md on %s yet — skipping", issue_number, branch)
+        return
+
+    subtasks = dispatch_mod.parse_plan(show.stdout)
+    if not subtasks:
+        LOG.info("issue #%d: plan has no subtasks — skipping", issue_number)
+        return
+
+    if not dispatch_mod.workers_all_done(branch, subtasks):
+        return
+
+    # All workers reported done. Open the PR (idempotent — gh errors are tolerated).
+    LOG.info("issue #%d: all %d workers done — opening PR", issue_number, len(subtasks))
+    _run([
+        "gh", "pr", "create",
+        "--repo", repo,
+        "--head", branch,
+        "--base", "main",
+        "--title", f"Closes #{issue_number}: auto-evo PR",
+        "--body", f"Auto-generated PR for issue #{issue_number}.\n\n"
+                  f"Pending heterologous validation. See workers/*/done.md and contract.md.",
+    ], check=False)
 
 
 def main(argv: Optional[List[str]] = None) -> int:

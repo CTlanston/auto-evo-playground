@@ -1,0 +1,140 @@
+name: worker
+
+# A single agent worker. Triggered exclusively by the orchestrator via
+# workflow_dispatch — never on push or PR — so the trust boundary holds:
+# only the control plane can spend the Anthropic key here.
+#
+# Two kinds:
+#   - code: writes/edits source code or tests. Uses opus. Runs serially per
+#           issue (concurrency group keyed on issue+kind).
+#   - rw:   writes/edits READMEs, docs, etc. Uses sonnet. May run in parallel
+#           with other rw workers on the same issue (different name → different
+#           concurrency group).
+#
+# Output contract: every worker MUST end its run by committing a file at
+# `workers/<name>/done.md` describing what was produced and how to verify it.
+# The orchestrator polls for these to decide when to open the PR.
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "Issue number this worker is serving"
+        required: true
+        type: string
+      kind:
+        description: "Worker kind: code or rw"
+        required: true
+        type: choice
+        options:
+          - code
+          - rw
+      name:
+        description: "Unique worker name within the issue (e.g. code-1, rw-readme)"
+        required: true
+        type: string
+      subtask:
+        description: "The subtask description (one bullet from plan.md)"
+        required: true
+        type: string
+      branch:
+        description: "shadow/issue-<n> branch to work on"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  issues: write          # for status comments
+  pull-requests: write
+
+concurrency:
+  # code workers on the same issue run serially; rw workers don't block each other.
+  group: worker-${{ inputs.issue }}-${{ inputs.kind == 'code' && 'code' || format('rw-{0}', inputs.name) }}
+  cancel-in-progress: false
+
+jobs:
+  work:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.AGENT_PAT }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      WORKER_KIND: ${{ inputs.kind }}
+      WORKER_NAME: ${{ inputs.name }}
+      WORKER_ISSUE: ${{ inputs.issue }}
+      WORKER_SUBTASK: ${{ inputs.subtask }}
+      WORKER_BRANCH: ${{ inputs.branch }}
+    steps:
+      - name: Checkout shadow branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+          token: ${{ secrets.AGENT_PAT }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project deps (best effort, for in-job sanity checks)
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install --quiet pytest ruff
+
+      - name: Compose worker prompt
+        id: prompt
+        run: |
+          python -m orchestrator.compose_worker_prompt \
+            --kind   "$WORKER_KIND" \
+            --name   "$WORKER_NAME" \
+            --issue  "$WORKER_ISSUE" \
+            --branch "$WORKER_BRANCH" \
+            --subtask-file <(printf '%s' "$WORKER_SUBTASK") \
+            --out prompt.txt
+          # Stash the path for the next step.
+          echo "prompt_path=prompt.txt" >> "$GITHUB_OUTPUT"
+
+      - name: Run Claude Code (anthropics/claude-code-action)
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # opus for code subtasks (deeper reasoning), sonnet for r-w.
+          model: ${{ inputs.kind == 'code' && 'claude-opus-4-7' || 'claude-sonnet-4-6' }}
+          # Load behavioral contract from repo root automatically. Pass the
+          # composed worker-specific prompt via the prompt_file input.
+          prompt_file: prompt.txt
+
+      - name: Sanity check — done.md was produced
+        run: |
+          DONE="workers/${WORKER_NAME}/done.md"
+          if [ ! -f "$DONE" ]; then
+            echo "::error::Worker did not produce $DONE — refusing to push."
+            exit 1
+          fi
+          echo "::notice::Found $DONE"
+
+      - name: Minimal in-job sanity (lint + targeted tests, never the full suite)
+        # The full test suite runs in shadow-ci.yml which has no secrets. This
+        # in-job check is intentionally narrow: confirm the worker didn't leave
+        # the tree obviously broken before pushing.
+        run: |
+          ruff check . || echo "::warning::ruff issues — shadow-ci will gate on this"
+          # If the worker added tests under tests/, smoke them. We don't fail
+          # the worker for test failures here; shadow-ci is the gate.
+          if compgen -G "tests/test_*.py" > /dev/null; then
+            pytest -q -x --no-header || echo "::warning::pytest issues — shadow-ci will gate on this"
+          fi
+
+      - name: Commit + push worker output
+        run: |
+          git config user.name "auto-evo worker (${WORKER_NAME})"
+          git config user.email "auto-evo@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "::warning::Worker produced no changes — nothing to commit."
+            exit 0
+          fi
+          git commit -m "feat(${WORKER_KIND}): ${WORKER_NAME} — issue #${WORKER_ISSUE}"
+          git push origin "${WORKER_BRANCH}"

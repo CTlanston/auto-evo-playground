@@ -27,3 +27,9 @@
 
 # --- Source-of-truth design document ---
 /docs/upgrade-plan.md           @CTlanston
+
+# --- Tests of the control plane (agents may add normal tests under
+#     tests/, but tests/test_orchestrator_*.py and tests/test_validator_*.py
+#     are part of the control plane) ---
+/tests/test_orchestrator_*.py   @CTlanston
+/tests/test_validator_*.py      @CTlanston
