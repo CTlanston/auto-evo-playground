@@ -1,0 +1,60 @@
+name: orchestrator
+
+# The heartbeat of the self-evolving agent system.
+# Schedule + manual dispatch. Picks one agent:queue issue per tick,
+# opens a shadow branch, asks Claude to draft plan+contract, labels
+# in-progress, and comments the plan.
+#
+# Trust boundary: this job holds ANTHROPIC_API_KEY. The Claude call here
+# is text-only (no Bash, no file tools) — see orchestrator/tick.py:
+# plan_with_claude. Workers (Phase 4) handle anything that executes code.
+
+on:
+  schedule:
+    # Every 15 minutes. Conservative — easy to tighten once stable.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write          # push to shadow/** branches
+  issues: write            # label + comment
+  pull-requests: write     # Phase 4+ will open PRs from here
+
+concurrency:
+  # One tick at a time. Schedule + manual dispatch should never overlap.
+  group: orchestrator-tick
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Kill switch — set vars.AGENT_FROZEN=true in repo settings to halt.
+      AGENT_FROZEN: ${{ vars.AGENT_FROZEN }}
+      # gh CLI auth. AGENT_PAT must be a fine-grained PAT with
+      # contents/issues/pull-requests write on this repo (see docs/upgrade-plan.md §3.4).
+      GH_TOKEN: ${{ secrets.AGENT_PAT }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # We need full history to branch + push.
+          fetch-depth: 0
+          # Use the PAT so subsequent `git push` reaches origin with write scope.
+          token: ${{ secrets.AGENT_PAT }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install orchestrator deps
+        run: |
+          pip install --quiet anthropic
+
+      - name: Heartbeat tick
+        run: |
+          python -m orchestrator.tick --repo "${GITHUB_REPOSITORY}" --verbose
