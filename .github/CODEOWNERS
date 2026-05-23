@@ -1,0 +1,29 @@
+# CODEOWNERS — control-plane protection for the self-evolving agent system.
+#
+# Any path listed below requires explicit review from a CODEOWNER before a
+# PR touching it can merge. Combined with main-branch protection (see
+# docs/upgrade-plan.md §3.4), this is how we prevent the agent — which
+# normally has write access via the shadow/issue-<n> flow — from modifying
+# its own control plane.
+#
+# The agent is instructed (CLAUDE.md rule 6) NEVER to touch these paths.
+# If the agent ever proposes changes here, the PR must be reviewed by a
+# human owner. Do not weaken this list.
+
+# --- Control plane: workflows ---
+/.github/                       @CTlanston
+
+# --- Control plane: orchestrator code (planning + dispatch) ---
+/orchestrator/                  @CTlanston
+
+# --- Control plane: validator code (heterologous Gemini judge) ---
+/validator/                     @CTlanston
+
+# --- Behavioral contract loaded by every Claude job ---
+/CLAUDE.md                      @CTlanston
+
+# --- This file itself ---
+/.github/CODEOWNERS             @CTlanston
+
+# --- Source-of-truth design document ---
+/docs/upgrade-plan.md           @CTlanston
