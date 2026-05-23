@@ -1,0 +1,63 @@
+name: Agent task
+description: A unit of work for the self-evolving agent system. The orchestrator picks one of these up per heartbeat tick.
+title: "[agent] "
+labels:
+  - "agent:queue"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## How this issue gets executed
+
+        1. The orchestrator picks the **oldest open issue with `agent:queue`** that no one is working on.
+        2. It opens a `shadow/issue-<n>` branch, then asks Claude to draft `plan.md` + `contract.md` based on **Goal** + **Observable acceptance criteria** below.
+        3. Workers (code / r-w) implement against the plan.
+        4. An independent Gemini validator judges the PR against your **contract** — using only the contract and behavioral evidence, never the source.
+        5. PASS + green CI → squash auto-merge.
+
+        Be precise about **Observable acceptance criteria** — that is the contract the validator will check against. Vague criteria → vague verdict. Examples of good criteria: "running `pytest tests/test_foo.py -q` exits 0", "calling `foo.bar(2, 3)` returns `5`", "the README contains a section titled 'Quick start'".
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One sentence stating what this issue exists to accomplish. No implementation hints — just the outcome.
+      placeholder: "Add a string-reverse helper that the cost-reporter module can use to redact tokens."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Observable acceptance criteria
+      description: |
+        A numbered list of checks the validator can perform without reading source code.
+        Each item should be either:
+          - a command that exits 0 (e.g. `pytest tests/test_X.py -q`)
+          - an observable artifact (e.g. "the file `docs/X.md` exists and contains the section 'Usage'")
+          - a behavioral assertion (e.g. "calling `reverse('abc')` returns `'cba'`")
+      placeholder: |
+        1. `pytest tests/test_reverse.py -q` exits 0.
+        2. `from src.utils import reverse_string` succeeds.
+        3. `reverse_string('abc')` returns `'cba'`.
+        4. `reverse_string('')` returns `''`.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope limits (optional)
+      description: Anything the agent must NOT do. E.g. "do not change existing public APIs", "do not add new dependencies".
+      placeholder: "Do not add new dependencies. Do not modify src/run_recorder.py."
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Background / context (optional)
+      description: Anything non-obvious the agent should know. Skip if not needed.
+      placeholder: ""
+    validations:
+      required: false
