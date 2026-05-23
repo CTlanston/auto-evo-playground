@@ -1,0 +1,48 @@
+name: watchdog
+
+# Periodic health check. Flags two kinds of stuck state:
+#   1. issues with agent:in-progress whose last update is older than N hours
+#   2. shadow/issue-* branches whose tip commit is older than N hours
+# Both cases get a comment on the issue and the agent:blocked label
+# (so the orchestrator skips them on subsequent ticks until a human
+# unblocks).
+
+on:
+  schedule:
+    # Every hour.
+    - cron: "30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: watchdog
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.AGENT_PAT }}
+      STUCK_HOURS: "6"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # need branch refs for stale-branch check
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Run watchdog
+        run: |
+          python -m orchestrator.watchdog \
+            --repo "$GITHUB_REPOSITORY" \
+            --stuck-hours "$STUCK_HOURS"
