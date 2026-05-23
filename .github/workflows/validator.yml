@@ -1,0 +1,80 @@
+name: validator
+
+# Heterologous acceptance validator. Triggered by the orchestrator (via
+# workflow_dispatch) after a PR is opened from a shadow branch. Carries
+# GEMINI_API_KEY. NEVER checks out the PR head's source — only fetches
+# behavioral artifacts (contract.md, workers/*/done.md from the branch),
+# the PR file manifest (paths + line counts), and shadow-ci test summaries.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "PR number to validate"
+        required: true
+        type: string
+      branch:
+        description: "PR head branch (shadow/issue-<n>)"
+        required: true
+        type: string
+      head_sha:
+        description: "PR head commit SHA — used to attach the status check"
+        required: true
+        type: string
+      shadow_run_id:
+        description: "Workflow run id of the shadow-ci run that produced test-results artifacts. Optional."
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  # Read repo metadata, write PR comment, write commit status check.
+  contents: read
+  pull-requests: write
+  statuses: write
+  actions: read           # to download artifacts from shadow-ci
+
+concurrency:
+  # One validation at a time per PR. Re-running with a newer head supersedes the old.
+  group: validator-${{ inputs.pr }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.AGENT_PAT }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      # Checkout MAIN, not the PR head. We only need the validator/ package
+      # and access to git refs for `git show origin/<branch>:contract.md` etc.
+      - name: Checkout main (validator code only — never PR source)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          # Need the remote branch refs for git show. Fetch all branches.
+          fetch-depth: 0
+
+      - name: Fetch PR head branch refs (not checked out)
+        run: |
+          git fetch origin "${{ inputs.branch }}:refs/remotes/origin/${{ inputs.branch }}" || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install validator deps
+        run: pip install --quiet google-genai
+
+      - name: Run validator
+        run: |
+          python -m validator.validate \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pr "${{ inputs.pr }}" \
+            --branch "${{ inputs.branch }}" \
+            --head-sha "${{ inputs.head_sha }}" \
+            --shadow-run-id "${{ inputs.shadow_run_id }}" \
+            --verbose
