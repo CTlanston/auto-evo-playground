@@ -142,4 +142,5 @@ jobs:
             exit 0
           fi
           git commit -m "feat(${WORKER_KIND}): ${WORKER_NAME} — issue #${WORKER_ISSUE}"
+          git pull --rebase origin "${WORKER_BRANCH}"
           git push origin "${WORKER_BRANCH}"
