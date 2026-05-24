@@ -288,11 +288,12 @@ def commit_artifacts(branch: str, artifacts: PlanArtifacts,
 
 
 def mark_in_progress(repo: str, issue_number: int, plan_md: str) -> None:
-    """Add the in-progress label and post the plan as a comment."""
+    """Add the in-progress label, remove the queue label, post plan as comment."""
     _run([
         "gh", "issue", "edit", str(issue_number),
         "--repo", repo,
         "--add-label", LABEL_IN_PROGRESS,
+        "--remove-label", LABEL_QUEUE,
     ])
 
     branch = shadow_branch_name(issue_number)
