@@ -441,6 +441,81 @@ def _maybe_open_pr_for_issue(repo: str, issue_number: int) -> None:
         "--body", f"Auto-generated PR for issue #{issue_number}.\n\n"
                   f"Pending heterologous validation. See workers/*/done.md and contract.md.",
     ], check=False)
+    _maybe_dispatch_validator(repo, branch)
+
+
+def _maybe_dispatch_validator(repo: str, branch: str) -> None:
+    """Dispatch validator.yml for the open PR on branch if not already validated."""
+    pr = _open_pr_for_branch(repo, branch)
+    if pr is None:
+        LOG.info("%s: no open PR found after create attempt — validator not dispatched", branch)
+        return
+
+    pr_number = pr["number"]
+    head_sha = pr["headRefOid"]
+    if _has_validation_status(repo, head_sha):
+        LOG.info("PR #%d already has heterologous-validation status on %s", pr_number, head_sha)
+        return
+
+    shadow_run_id = _latest_shadow_ci_run(repo, branch, head_sha)
+    LOG.info("dispatching validator for PR #%d head=%s shadow_run_id=%s",
+             pr_number, head_sha, shadow_run_id or "<none>")
+    _run([
+        "gh", "workflow", "run", "validator.yml",
+        "--repo", repo,
+        "--ref", "main",
+        "-f", f"pr={pr_number}",
+        "-f", f"branch={branch}",
+        "-f", f"head_sha={head_sha}",
+        "-f", f"shadow_run_id={shadow_run_id}",
+    ], check=False)
+
+
+def _open_pr_for_branch(repo: str, branch: str) -> Optional[dict]:
+    proc = _run([
+        "gh", "pr", "list",
+        "--repo", repo,
+        "--head", branch,
+        "--state", "open",
+        "--json", "number,headRefOid",
+    ], check=False)
+    if proc.returncode != 0:
+        LOG.warning("could not list PRs for %s: %s", branch, proc.stderr.strip())
+        return None
+    prs = json.loads(proc.stdout or "[]")
+    return prs[0] if prs else None
+
+
+def _has_validation_status(repo: str, head_sha: str) -> bool:
+    proc = _run([
+        "gh", "api",
+        f"repos/{repo}/commits/{head_sha}/status",
+        "--jq", '.statuses[] | select(.context=="heterologous-validation") | .state',
+    ], check=False)
+    return proc.returncode == 0 and bool(proc.stdout.strip())
+
+
+def _latest_shadow_ci_run(repo: str, branch: str, head_sha: str) -> str:
+    proc = _run([
+        "gh", "run", "list",
+        "--repo", repo,
+        "--workflow", "shadow-ci.yml",
+        "--branch", branch,
+        "--limit", "20",
+        "--json", "databaseId,headSha,status,conclusion",
+    ], check=False)
+    if proc.returncode != 0:
+        LOG.warning("could not list shadow-ci runs for %s: %s", branch, proc.stderr.strip())
+        return ""
+    runs = json.loads(proc.stdout or "[]")
+    for run in runs:
+        if (
+            run.get("headSha") == head_sha
+            and run.get("status") == "completed"
+            and run.get("conclusion") == "success"
+        ):
+            return str(run["databaseId"])
+    return ""
 
 
 def main(argv: Optional[List[str]] = None) -> int:
