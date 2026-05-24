@@ -13,7 +13,7 @@ You are a CODE worker. You write or edit Python source files and tests. You may 
 
 - Issue number: #40
 - Branch: shadow/issue-40 (already checked out)
-- Worker name: code-1
+- Worker name: code-2
 - Worker kind: code
 
 Read `plan.md` and `contract.md` from the repository root for the full
@@ -21,7 +21,7 @@ plan and the behavioral contract this issue will be judged against.
 
 ## Your subtask
 
-Create `src/mathx.py` with `add(a, b)` and `mul(a, b)` functions for integer arithmetic.
+Create `tests/test_mathx.py` with pytest tests covering `add(2,3)==5`, `add(-2,3)==1`, `mul(4,5)==20`, `mul(-2,3)==-6`.
 
 ## What "done" means for you
 
@@ -30,7 +30,7 @@ Create `src/mathx.py` with `add(a, b)` and `mul(a, b)` functions for integer ari
    test suite runs separately in shadow-ci.yml with no secrets; do NOT
    run network calls, do NOT export environment variables, do NOT echo
    any value that looks like a credential.
-3. Write `workers/code-1/done.md` (create the directory). The file must contain:
+3. Write `workers/code-2/done.md` (create the directory). The file must contain:
    - **What I produced** — a short list of files touched and why.
    - **How to verify it** — one or more behavioral checks the validator
      can perform without reading source code (e.g. a `pytest` invocation,
