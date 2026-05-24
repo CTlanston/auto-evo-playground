@@ -10,3 +10,13 @@ def slugify(text: str) -> str:
     while "--" in s:
         s = s.replace("--", "-")
     return s.strip("-")
+
+
+def dedupe_words(text: str) -> str:
+    tokens = text.split()
+    result = []
+    for tok in tokens:
+        if result and tok.lower() == result[-1].lower():
+            continue
+        result.append(tok)
+    return " ".join(result)
