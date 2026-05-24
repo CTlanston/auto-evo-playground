@@ -8,3 +8,4 @@ Observable acceptance criteria:
 2. An agent issue created through the supported path includes a goal field and observable acceptance criteria.
 3. A queued agent issue carries the `agent:queue` label so the orchestrator can pick it up.
 4. The issue-template YAML parses successfully.
+5. The worker workflow invokes Claude Code Action v1 using supported inputs for prompt text and model selection.
