@@ -136,6 +136,7 @@ jobs:
         run: |
           git config user.name "auto-evo worker (${WORKER_NAME})"
           git config user.email "auto-evo@users.noreply.github.com"
+          rm -f prompt.txt
           git add -A
           if git diff --cached --quiet; then
             echo "::warning::Worker produced no changes — nothing to commit."
