@@ -1,4 +1,4 @@
-from src.string_utils import slugify
+from src.string_utils import slugify, normalize_whitespace
 
 
 def test_empty_string():
@@ -59,3 +59,27 @@ def test_unicode_letters_preserved():
 
 def test_unicode_with_punctuation():
     assert slugify("Привет, мир!") == "привет-мир"
+
+
+def test_normalize_whitespace_empty_string():
+    assert normalize_whitespace("") == ""
+
+
+def test_normalize_whitespace_all_whitespace():
+    assert normalize_whitespace("   \t\n  ") == ""
+
+
+def test_normalize_whitespace_multiple_internal_spaces():
+    assert normalize_whitespace("a     b") == "a b"
+
+
+def test_normalize_whitespace_mixed_tabs_newlines():
+    assert normalize_whitespace("a\t\nb\r\nc") == "a b c"
+
+
+def test_normalize_whitespace_leading_trailing():
+    assert normalize_whitespace("   hello   ") == "hello"
+
+
+def test_normalize_whitespace_hello_world():
+    assert normalize_whitespace("hello   world") == "hello world"

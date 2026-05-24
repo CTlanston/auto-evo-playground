@@ -10,3 +10,8 @@ def slugify(text: str) -> str:
     while "--" in s:
         s = s.replace("--", "-")
     return s.strip("-")
+
+
+def normalize_whitespace(text: str) -> str:
+    """Collapse runs of whitespace to a single space; strip ends."""
+    return " ".join(text.split())
