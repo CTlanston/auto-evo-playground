@@ -103,6 +103,19 @@ Expected timeline (rough): orchestrator picks up within 15 min, plan/contract pu
 
 If the smoke fails, the digest issue (`[auto-evo] Daily digest`) and the watchdog comments will surface where it stuck.
 
+## mathx
+
+`src/mathx.py` exposes two pure arithmetic helpers:
+
+```python
+from src.mathx import add, mul
+
+add(2, 3)   # → 5
+mul(4, 5)   # → 20
+```
+
+`add(a, b)` returns the sum and `mul(a, b)` returns the product.
+
 ## Local development
 
 ```bash
