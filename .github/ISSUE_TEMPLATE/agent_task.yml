@@ -1,9 +1,7 @@
-# Template re-parsed after labels were created — see commit history.
 name: Agent task
-description: A unit of work for the self-evolving agent system. The orchestrator picks one of these up per heartbeat tick.
+description: A unit of work for the self-evolving agent system.
 title: "[agent] "
-labels:
-  - "agent:queue"
+labels: ["agent:queue"]
 body:
   - type: markdown
     attributes:
@@ -13,16 +11,16 @@ body:
         1. The orchestrator picks the **oldest open issue with `agent:queue`** that no one is working on.
         2. It opens a `shadow/issue-<n>` branch, then asks Claude to draft `plan.md` + `contract.md` based on **Goal** + **Observable acceptance criteria** below.
         3. Workers (code / r-w) implement against the plan.
-        4. An independent Gemini validator judges the PR against your **contract** — using only the contract and behavioral evidence, never the source.
-        5. PASS + green CI → squash auto-merge.
+        4. An independent Gemini validator judges the PR against your **contract** using only behavioral evidence, never source code.
+        5. PASS + green CI means squash auto-merge.
 
-        Be precise about **Observable acceptance criteria** — that is the contract the validator will check against. Vague criteria → vague verdict. Examples of good criteria: "running `pytest tests/test_foo.py -q` exits 0", "calling `foo.bar(2, 3)` returns `5`", "the README contains a section titled 'Quick start'".
+        Be precise about **Observable acceptance criteria**. That is the contract the validator checks. Examples: "running `pytest tests/test_foo.py -q` exits 0", "calling `foo.bar(2, 3)` returns `5`", "the README contains a section titled 'Quick start'".
 
   - type: textarea
     id: goal
     attributes:
       label: Goal
-      description: One sentence stating what this issue exists to accomplish. No implementation hints — just the outcome.
+      description: One sentence stating what this issue exists to accomplish. No implementation hints; just the outcome.
       placeholder: "Add a string-reverse helper that the cost-reporter module can use to redact tokens."
     validations:
       required: true

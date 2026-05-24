@@ -93,18 +93,22 @@ jobs:
             --branch "$WORKER_BRANCH" \
             --subtask-file <(printf '%s' "$WORKER_SUBTASK") \
             --out prompt.txt
-          # Stash the path for the next step.
+          # Stash the path and prompt body for the next step.
           echo "prompt_path=prompt.txt" >> "$GITHUB_OUTPUT"
+          DELIM="CLAUDE_PROMPT_$(uuidgen)"
+          printf 'prompt<<%s\n' "$DELIM" >> "$GITHUB_OUTPUT"
+          cat prompt.txt >> "$GITHUB_OUTPUT"
+          printf '\n%s\n' "$DELIM" >> "$GITHUB_OUTPUT"
 
       - name: Run Claude Code (anthropics/claude-code-action)
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.AGENT_PAT }}
+          prompt: ${{ steps.prompt.outputs.prompt }}
           # opus for code subtasks (deeper reasoning), sonnet for r-w.
-          model: ${{ inputs.kind == 'code' && 'claude-opus-4-7' || 'claude-sonnet-4-6' }}
-          # Load behavioral contract from repo root automatically. Pass the
-          # composed worker-specific prompt via the prompt_file input.
-          prompt_file: prompt.txt
+          claude_args: |
+            --model ${{ inputs.kind == 'code' && 'claude-opus-4-7' || 'claude-sonnet-4-6' }}
 
       - name: Sanity check — done.md was produced
         run: |
