@@ -126,3 +126,5 @@ python3 -m pytest tests/test_orchestrator_*.py tests/test_validator_*.py --no-co
 ```
 
 The control-plane tests do not need any external services or secrets. The agent-written tests under `tests/` may.
+
+validator-fail-smoke: present

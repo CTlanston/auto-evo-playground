@@ -2,10 +2,13 @@
 
 ## What I produced
 
-- **`README.md`** — added a `## mathx` section that documents both `add` and `mul` with example usage.
+- **`README.md`** — appended the line `validator-fail-smoke: present` at the end of the file (after the Local development section). No other files were touched.
 
 ## How to verify it
 
-1. `grep -n "mathx" README.md` — should show the new section heading and inline references.
-2. `grep -n "add" README.md` and `grep -n "mul" README.md` — both symbols must appear in the file.
-3. Contract criterion 5: the section exists, names both `add` and `mul`, and gives a concrete usage example.
+```bash
+grep -c "validator-fail-smoke: present" README.md
+# expected output: 1
+```
+
+Per `contract.md`, the contract is intentionally contradictory (criterion 1 requires the string present; criterion 2 requires it absent), so validation is expected to fail as a smoke test of the validator's ability to reject contradictory contracts.
