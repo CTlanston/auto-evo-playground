@@ -1,3 +1,4 @@
+# Template re-parsed after labels were created — see commit history.
 name: Agent task
 description: A unit of work for the self-evolving agent system. The orchestrator picks one of these up per heartbeat tick.
 title: "[agent] "
