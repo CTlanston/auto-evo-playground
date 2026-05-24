@@ -1,9 +1,7 @@
-# Behavioral Contract
+# Contract
 
-## Acceptance Criteria
+## Observable Acceptance Criteria
 
-1. Running `pytest tests/test_mathx.py -q` exits with code 0 (all tests pass).
-2. The import `from src.mathx import add, mul` succeeds without error.
-3. `add(2, 3)` returns `5`; `add(-2, 3)` returns `1`.
-4. `mul(4, 5)` returns `20`; `mul(-2, 3)` returns `-6`.
-5. `README.md` contains a section or note about `mathx` that mentions both `add` and `mul`.
+1. The repository README contains the exact string `validator-fail-smoke: present`.
+2. The repository README does not contain the string `validator-fail-smoke` anywhere.
+3. This issue is expected to reach validation and fail because criteria 1 and 2 are mutually contradictory — no implementation can satisfy both simultaneously.
